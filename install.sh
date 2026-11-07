@@ -15,12 +15,17 @@ say() { printf '  %s\n' "$1"; }
 echo "Installing Stash into $HERMES_HOME"
 
 mkdir -p "$PLUGINS"
-if [ -e "$PLUGINS/stash" ] && [ ! -L "$PLUGINS/stash" ]; then
+if [ "$(cd "$SRC" && pwd -P)" = "$(cd "$PLUGINS" 2>/dev/null && pwd -P)/stash" ]; then
+  say "already installed in place at $PLUGINS/stash — skipping the link"
+elif [ -e "$PLUGINS/stash" ] && [ ! -L "$PLUGINS/stash" ]; then
   echo "  $PLUGINS/stash already exists and is not a symlink — moving it aside"
   mv "$PLUGINS/stash" "$PLUGINS/stash.bak.$(date +%s)"
+  ln -sfn "$SRC" "$PLUGINS/stash"
+  say "linked $PLUGINS/stash -> $SRC"
+else
+  ln -sfn "$SRC" "$PLUGINS/stash"
+  say "linked $PLUGINS/stash -> $SRC"
 fi
-ln -sfn "$SRC" "$PLUGINS/stash"
-say "linked $PLUGINS/stash -> $SRC"
 
 # The desktop half has to sit in desktop-plugins/ for the app to see it. A local
 # Electron build copies this itself; doing it here means a reload is enough.
