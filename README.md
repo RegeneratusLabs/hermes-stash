@@ -13,13 +13,18 @@ thumbnails fill in on their own, fetched server-side, so nothing costs you a mod
 
 ## Install
 
+Install it on the machine that runs the **desktop app** — the app copies a package's desktop half
+out of that machine's `~/.hermes/plugins/`, so a copy installed on a remote server never reaches
+your sidebar.
+
 ```bash
 hermes plugins install RegeneratusLabs/hermes-stash
 hermes plugins enable stash
 ```
 
-Then reload the desktop app's plugins (⌘K → *Reload desktop plugins*, or restart the app). Stash
-appears in the left sidebar under your other plugin pages.
+The desktop half ships **off** by design (a package's UI half mirrors its agent half's consent).
+So there is one click left after the two commands: restart the app, then **Capabilities → Plugins →
+Stash → enable**. Stash then appears in the left sidebar, under your other plugin pages.
 
 From a clone instead:
 

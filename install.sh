@@ -53,7 +53,7 @@ fi
 
 cat <<'DONE'
 
-Done. In the desktop app: ⌘K -> "Reload desktop plugins", then look for Stash
-in the left sidebar. If it is not listed yet, enable it in Capabilities ->
-Plugins. Items live in ~/.hermes/stash/items.json.
+Done. One click left: open Capabilities -> Plugins, find Stash, and enable it.
+A package's desktop half ships off on purpose, so the sidebar row appears only
+after that toggle. Items live in ~/.hermes/stash/items.json.
 DONE
