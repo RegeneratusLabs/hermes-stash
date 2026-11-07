@@ -1,0 +1,12 @@
+name: stash
+version: 0.1.0
+description: >-
+  A capture bin pinned in the Hermes sidebar. Paste links, YouTube urls, images or plain notes and
+  they wait there — durable, out of the chat, with titles and thumbnails filled in server-side. Your
+  agent reads the same file later through three tools, so "triage my inbox" actually empties it.
+  Nothing is summarised or sent anywhere until you ask.
+author: Josh Thomson
+provides_tools:
+  - stash_list
+  - stash_add
+  - stash_update
