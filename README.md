@@ -41,6 +41,8 @@ cd hermes-stash
 - **Drag an image in**, pick one with *Add image…*, or ⌘V a screenshot straight into the box.
 - **Statuses**: New → Done → Dropped. Click the pill to move an item along.
 - **Filters** count what's in each state.
+- **Chat** on any row opens a new conversation about that item — the title, link and your
+  note go in as the opening message, and the item flips to Reading.
 - Click a title to try opening the link; your agent can open anything that refuses.
 
 ## Letting the agent do the work
