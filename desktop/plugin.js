@@ -8,9 +8,29 @@ const BASE = `/api/plugins/${ID}`
 
 // --- api -----------------------------------------------------------------------------------
 
+/** The app's own HTTP door. In a remote session the renderer is NOT the backend,
+ *  so a relative fetch has nowhere to land ("Failed to fetch"); this bridge
+ *  resolves the active backend, its auth and its profile for us. Older shells
+ *  without the bridge fall back to fetch, which is correct when the app is local. */
+function nativeApi() {
+  const bridge = typeof window === 'undefined' ? null : window.hermesDesktop && window.hermesDesktop.api
+  return typeof bridge === 'function' ? bridge.bind(window.hermesDesktop) : null
+}
+
 async function rest(path, opts = {}) {
+  const method = opts.method || 'GET'
+  const bridge = nativeApi()
+
+  if (bridge) {
+    const payload = await bridge({ path: `${BASE}${path}`, method, body: opts.body })
+    if (payload && payload.ok === false) {
+      throw new Error(payload.error || 'request failed')
+    }
+    return payload || {}
+  }
+
   const response = await fetch(BASE + path, {
-    method: opts.method || 'GET',
+    method,
     headers: opts.body ? { 'Content-Type': 'application/json' } : undefined,
     body: opts.body ? JSON.stringify(opts.body) : undefined
   })
