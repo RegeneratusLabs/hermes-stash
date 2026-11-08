@@ -5,12 +5,34 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 const ID = 'stash'
 const ROUTE = '/stash'
 const BASE = `/api/plugins/${ID}`
-const VERSION = '0.2.0'
+const VERSION = '0.3.0'
 
 // Which door this page actually reached the backend through. Surfaced in the UI:
 // a wrong answer here is the difference between "the plugin is broken" and
 // "the new file never loaded", and guessing between those costs hours.
 const transport = { used: 'none' }
+
+// --- chat ----------------------------------------------------------------------------------
+
+/** What Hermes is told when you open a conversation about an item. It carries the
+ *  whole item — id included — so the agent can look it up, act on it, and close it
+ *  out with stash_update without being asked for context it can't see. */
+function chatPrompt(item) {
+  const lines = ['I pulled this out of my Stash and want to talk it through.', '']
+  lines.push(`Title: ${item.title || '(untitled)'}`)
+  lines.push(`Type: ${item.kind}`)
+  if (item.url) lines.push(`Link: ${item.url}`)
+  if (item.media) lines.push(`Image on disk: ${item.media}`)
+  if (item.note) lines.push(`My note: ${item.note}`)
+  lines.push(`Stash id: ${item.id}`)
+  lines.push('')
+  lines.push(
+    'Start by telling me what this actually is and why it might matter to me — fetch the link or ' +
+      'look at the image if that helps. Then ask me what I want to do with it. Use stash_update to ' +
+      'mark it reading now, and done or dropped once we are finished.'
+  )
+  return lines.join('\n')
+}
 
 // --- api -----------------------------------------------------------------------------------
 
@@ -61,6 +83,56 @@ const api = {
   status: (id, status) => rest('/status', { method: 'POST', body: { id, status } }),
   remove: id => rest('/delete', { method: 'POST', body: { id } })
 }
+
+/** Mint a session and start the turn, then put the person in front of it. Same three
+ *  RPCs the app's own composer uses; no mounted composer, no focus required. */
+async function openChat(item) {
+  const request = host && host.request
+  if (typeof request !== 'function') return { ok: false, stage: 'host.request is missing' }
+
+  const profileAtom = host.state && host.state.profile
+  const profile = profileAtom && typeof profileAtom.get === 'function' ? profileAtom.get() : undefined
+  const title = `Stash · ${(item.title || item.url || 'item').slice(0, 60)}`
+
+  let created = null
+  for (const params of [{ profile, title, source: 'desktop' }, { title, source: 'desktop' }]) {
+    try {
+      created = await request('session.create', params)
+      if (created && created.session_id) break
+    } catch {
+      created = null
+    }
+  }
+  const sessionId = created && created.session_id
+  if (!sessionId) return { ok: false, stage: 'session.create returned no session_id' }
+
+  const stored = created.stored_session_id || created.session_id
+  try {
+    await request('prompt.submit', { profile, session_id: sessionId, text: chatPrompt(item) })
+  } catch (error) {
+    return { ok: false, stage: `prompt.submit failed: ${error && error.message ? error.message : error}` }
+  }
+
+  let opened = false
+  try {
+    if (host.openSession) {
+      host.openSession(stored, { profile, intent: 'in-place' })
+      opened = true
+    }
+  } catch {
+    opened = false
+  }
+  if (!opened) {
+    try {
+      host.navigate(`/session/${encodeURIComponent(stored)}`)
+      opened = true
+    } catch {
+      opened = false
+    }
+  }
+  return { ok: true, session: stored, opened }
+}
+
 
 // --- helpers -------------------------------------------------------------------------------
 
@@ -152,7 +224,7 @@ function Thumb({ item }) {
   })
 }
 
-function Row({ item, onStatus, onDelete }) {
+function Row({ item, onStatus, onDelete, onChat, chatting }) {
   const meta = [item.host, ago(item.added), item.kind === 'text' ? 'note' : item.kind]
     .filter(Boolean)
     .join(' · ')
@@ -200,6 +272,25 @@ function Row({ item, onStatus, onDelete }) {
           : null
       ] }),
       jsxs('div', { key: 'actions', style: { display: 'flex', gap: 6, alignItems: 'center', flex: 'none' }, children: [
+        jsx('button', {
+          key: 'chat',
+          type: 'button',
+          title: 'open a chat with Hermes about this',
+          onClick: () => onChat(item),
+          disabled: Boolean(chatting),
+          style: {
+            background: 'transparent',
+            border: `1px solid ${LINE}`,
+            color: chatting ? MUTED : FG,
+            borderRadius: 8,
+            padding: '2px 9px',
+            height: 24,
+            cursor: chatting ? 'default' : 'pointer',
+            fontSize: 11.5,
+            fontFamily: 'inherit'
+          },
+          children: chatting ? '…' : 'Chat'
+        }),
         jsx(Pill, { key: 'pill', status: item.status, onClick: () => onStatus(item, NEXT_STATUS[item.status] || 'done') }),
         jsx('button', {
           key: 'del',
@@ -237,6 +328,7 @@ function StashPage() {
   const [filter, setFilter] = useState('all')
   const [dragging, setDragging] = useState(false)
   const [flash, setFlash] = useState('')
+  const [chatting, setChatting] = useState(null)
   const box = useRef(null)
   const fileInput = useRef(null)
 
@@ -308,6 +400,25 @@ function StashPage() {
     } catch (exc) {
       setError(exc.message || String(exc))
       refresh()
+    }
+  }
+
+  const onChat = async item => {
+    if (chatting) return
+    setChatting(item.id)
+    setError('')
+    try {
+      const result = await openChat(item)
+      if (!result.ok) {
+        setError(result.stage)
+        return
+      }
+      if (item.status === 'new') onStatus(item, 'reading')
+      say(result.opened ? 'chat opened' : 'chat started')
+    } catch (exc) {
+      setError(exc.message || String(exc))
+    } finally {
+      setChatting(null)
     }
   }
 
@@ -514,11 +625,6 @@ function StashPage() {
           }, key)
         )
       }),
-      jsx('div', {
-        key: 'footer',
-        style: { marginTop: 18, color: MUTED, fontSize: 10.5, opacity: 0.75 },
-        children: `v${VERSION} · backend via ${transport.used} · bridge ${nativeApi() ? 'present' : 'absent'}`
-      }),
       loading
         ? jsx('div', { key: 'loading', style: { color: MUTED, fontSize: 12.5 }, children: 'loading…' })
         : shown.length === 0
@@ -538,9 +644,14 @@ function StashPage() {
               key: 'list',
               style: { listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 },
               children: shown.map(item =>
-                jsx(Row, { item, onStatus, onDelete }, item.id)
+                jsx(Row, { item, onStatus, onDelete, onChat, chatting: chatting === item.id }, item.id)
               )
-            })
+            }),
+      jsx('div', {
+        key: 'footer',
+        style: { marginTop: 20, color: MUTED, fontSize: 10.5, opacity: 0.7 },
+        children: `v${VERSION} · backend via ${transport.used} · bridge ${nativeApi() ? 'present' : 'absent'}`
+      })
     ]
   })
 }
