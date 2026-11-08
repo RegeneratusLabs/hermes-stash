@@ -200,7 +200,7 @@ function Row({ item, onStatus, onDelete }) {
 
 // --- page ----------------------------------------------------------------------------------
 
-function InboxPage() {
+function StashPage() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -514,9 +514,9 @@ function InboxPage() {
 
 export default {
   id: ID,
-  name: 'Inbox',
+  name: 'Stash',
   register(ctx) {
-    ctx.register({ id: 'page', area: ROUTES_AREA, data: { path: ROUTE }, render: () => jsx(InboxPage, {}) })
+    ctx.register({ id: 'page', area: ROUTES_AREA, data: { path: ROUTE }, render: () => jsx(StashPage, {}) })
     ctx.register({
       id: 'nav',
       area: SIDEBAR_NAV_AREA,
