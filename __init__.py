@@ -1,4 +1,4 @@
-"""inbox — a capture bin in the sidebar, readable by the agent later.
+"""stash — a capture bin in the sidebar, readable by the agent later.
 
 Wires: three tools (list / add / update) and a native desktop page with its own router.
 The store is a plain JSON file on purpose: it survives everything, and the agent can read it even
@@ -20,7 +20,7 @@ _HERE = Path(__file__).resolve().parent
 import importlib.util
 
 def _store():
-    spec = importlib.util.spec_from_file_location("inbox_store_tools", _HERE / "store.py")
+    spec = importlib.util.spec_from_file_location("stash_store_tools", _HERE / "store.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
     return mod
@@ -50,7 +50,7 @@ def _handle_list(params: Optional[dict] = None, **kwargs: Any) -> str:
     try:
         items = _store().load()
     except Exception as exc:  # pragma: no cover - unreadable store
-        return _err(exc, "the inbox store could not be read; check ~/.hermes/inbox/items.json")
+        return _err(exc, "the stash store could not be read; check ~/.hermes/stash/items.json")
     if status == "open":
         rows = [i for i in items if i.get("status") in ("new", "reading")]
     elif status == "all":
@@ -69,7 +69,7 @@ def _handle_add(params: Optional[dict] = None, **kwargs: Any) -> str:
     try:
         result = _store().add(text)
     except Exception as exc:
-        return _err(exc, "the inbox store could not be written; check ~/.hermes/inbox/items.json")
+        return _err(exc, "the stash store could not be written; check ~/.hermes/stash/items.json")
     return json.dumps({"added": [_row(i) for i in result.get("added", [])]}, ensure_ascii=False)
 
 
@@ -149,4 +149,4 @@ def register(ctx) -> None:
             description=schema["description"].split(".")[0],
             emoji="\U0001F4E5",
         )
-    logger.info("inbox: registered %d tools", len(SCHEMAS))
+    logger.info("stash: registered %d tools", len(SCHEMAS))

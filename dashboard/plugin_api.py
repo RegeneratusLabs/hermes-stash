@@ -1,4 +1,4 @@
-"""Inbox backend. Routes mount at /api/plugins/inbox/ (the app fetches them same-origin).
+"""Stash backend. Routes mount at /api/plugins/stash/ (reached through ctx.rest).
 
 Blocking work (page fetches for titles) runs in threads; enrichment is fired and forgotten so a
 paste returns immediately.
@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 def _store():
-    spec = importlib.util.spec_from_file_location("inbox_store_api", _PLUGIN_DIR / "store.py")
+    spec = importlib.util.spec_from_file_location("stash_store_api", _PLUGIN_DIR / "store.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
     return mod

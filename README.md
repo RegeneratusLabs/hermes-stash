@@ -89,8 +89,8 @@ Three traps, in the order they bite:
 
 ## Credit
 
-Built by Josh Thomson with Hermes Agent, which wrote most of it in one sitting. The store is plain
-JSON on purpose: a capture bin should outlive the app that made it.
+Built by RegeneratusLabs with Hermes Agent. The store is plain JSON on purpose: a capture bin
+should outlive the app that made it.
 
 ## Licence
 
