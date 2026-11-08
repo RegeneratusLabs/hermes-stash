@@ -69,6 +69,22 @@ the url you saved.
 Hermes Agent with desktop plugin support. Python side uses only the standard library plus what
 Hermes already ships (FastAPI). No API keys.
 
+## When it installs but never appears
+
+Three traps, in the order they bite:
+
+1. **Install it on the machine the app runs on.** The app reads its own
+   `~/.hermes/desktop-plugins/`, never the backend's (Electron-local, `#66899`), and a package
+   installed only on a remote backend can never materialise a desktop half (`#114079`). A terminal
+   *inside* the app is the backend's shell, not your laptop's.
+2. **The search box in Capabilities → Plugins searches the catalog, not what's installed.** Typing
+   there will never show a locally installed plugin. Clear it to see the installed list.
+3. **`.hermes-package.json` next to the desktop half means "off".** The app writes that marker when
+   it copies a package's half, and a marker sets `defaultEnabled: false` — the UI half mirrors the
+   Python half's consent gate. Either flip the Desktop switch on the plugin's row, or drop the
+   marker so it loads enabled by default:
+   `rm -f ~/.hermes/desktop-plugins/stash/.hermes-package.json`
+
 ## Credit
 
 Built by Josh Thomson with Hermes Agent, which wrote most of it in one sitting. The store is plain
