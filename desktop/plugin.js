@@ -650,7 +650,7 @@ function StashPage() {
       jsx('div', {
         key: 'footer',
         style: { marginTop: 20, color: MUTED, fontSize: 10.5, opacity: 0.7 },
-        children: `v${VERSION} · backend via ${transport.used} · bridge ${nativeApi() ? 'present' : 'absent'}`
+        children: `v${VERSION}`
       })
     ]
   })

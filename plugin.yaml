@@ -1,5 +1,6 @@
 name: stash
 version: 0.3.0
+requires_hermes: ">=0.23.0"
 description: >-
   A capture bin pinned in the Hermes sidebar. Paste links, YouTube urls, images or plain notes and
   they wait there — durable, out of the chat, with titles and thumbnails filled in server-side. Your
