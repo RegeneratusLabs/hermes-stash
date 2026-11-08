@@ -5,7 +5,7 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 const ID = 'stash'
 const ROUTE = '/stash'
 const BASE = `/api/plugins/${ID}`
-const VERSION = '0.3.0'
+const VERSION = '0.3.1'
 
 // Which door this page actually reached the backend through. Surfaced in the UI:
 // a wrong answer here is the difference between "the plugin is broken" and
@@ -36,22 +36,24 @@ function chatPrompt(item) {
 
 // --- api -----------------------------------------------------------------------------------
 
-/** The app's own HTTP door. In a remote session the renderer is NOT the backend,
- *  so a relative fetch has nowhere to land ("Failed to fetch"); this bridge
- *  resolves the active backend, its auth and its profile for us. Older shells
- *  without the bridge fall back to fetch, which is correct when the app is local. */
-function nativeApi() {
-  const bridge = typeof window === 'undefined' ? null : window.hermesDesktop && window.hermesDesktop.api
-  return typeof bridge === 'function' ? bridge.bind(window.hermesDesktop) : null
+/** The plugin SDK's own REST door for this plugin's backend namespace. It carries
+ *  the connection, auth and profile, so it works in a remote session where a bare
+ *  relative fetch has nowhere to land. Older shells without it get plain fetch,
+ *  which is correct when the app and the backend are the same machine. */
+let PLUGIN_CTX = null
+
+function sdkRest() {
+  const rest = PLUGIN_CTX && PLUGIN_CTX.rest
+  return typeof rest === 'function' ? rest.bind(PLUGIN_CTX) : null
 }
 
 async function rest(path, opts = {}) {
   const method = opts.method || 'GET'
-  const bridge = nativeApi()
+  const sdk = sdkRest()
 
-  if (bridge) {
-    transport.used = 'bridge'
-    const payload = await bridge({ path: `${BASE}${path}`, method, body: opts.body })
+  if (sdk) {
+    transport.used = 'ctx.rest'
+    const payload = await sdk(path, { method, body: opts.body })
     if (payload && payload.ok === false) {
       throw new Error(payload.error || 'request failed')
     }
@@ -601,7 +603,7 @@ function StashPage() {
               fontSize: 12,
               marginBottom: 14
             },
-            children: `${error}  ·  via ${transport.used}  ·  bridge ${nativeApi() ? 'present' : 'absent'}  ·  v${VERSION}`
+            children: `${error}  ·  via ${transport.used}  ·  sdk ${sdkRest() ? 'rest' : 'fetch'}  ·  v${VERSION}`
           })
         : null,
       jsx('div', {
@@ -660,6 +662,7 @@ export default {
   id: ID,
   name: 'Stash',
   register(ctx) {
+    PLUGIN_CTX = ctx
     ctx.register({ id: 'page', area: ROUTES_AREA, data: { path: ROUTE }, render: () => jsx(StashPage, {}) })
     ctx.register({
       id: 'nav',

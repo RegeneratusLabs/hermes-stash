@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import json
 import os
 import re
+import socket
 import threading
 import time
 import urllib.error
@@ -140,9 +142,50 @@ def parse_paste(text: str) -> list[tuple[str, str, str]]:
 
 # --- enrichment ----------------------------------------------------------------------------
 
+def _public_target(url: str) -> bool:
+    """True only for http(s) whose host resolves entirely to public addresses.
+
+    A saved url is attacker-influenced input (it came off a clipboard), so the
+    title fetch must not be able to reach loopback, link-local metadata services,
+    or anything else inside the network the agent runs in."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, None)
+    except OSError:
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        try:
+            addr = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+            return False
+    return True
+
+
+class _GuardedRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not _public_target(newurl):
+            raise urllib.error.URLError("blocked redirect to a non-public address")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_GuardedRedirect())
+
+
 def _fetch(url: str, timeout: float = 4.0, cap: int = 400_000) -> str:
+    if not _public_target(url):
+        return ""
     req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept": "text/html,*/*"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _OPENER.open(req, timeout=timeout) as resp:
         ctype = (resp.headers.get("Content-Type") or "").lower()
         if "html" not in ctype and "xml" not in ctype and "text" not in ctype and "json" not in ctype:
             return ""
@@ -289,7 +332,7 @@ def add_image(name: str, data_url: str, note: str = "") -> dict:
         "title": note[:120] or (Path(name).stem or "image"),
         "note": note[:400],
         "host": "local",
-        "thumb": f"/api/plugins/inbox/media/{filename}",
+        "thumb": f"/api/plugins/stash/media/{filename}",
         "media": filename,
         "bytes": len(raw),
         "added": time.time(),
