@@ -5,6 +5,12 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 const ID = 'stash'
 const ROUTE = '/stash'
 const BASE = `/api/plugins/${ID}`
+const VERSION = '0.2.0'
+
+// Which door this page actually reached the backend through. Surfaced in the UI:
+// a wrong answer here is the difference between "the plugin is broken" and
+// "the new file never loaded", and guessing between those costs hours.
+const transport = { used: 'none' }
 
 // --- api -----------------------------------------------------------------------------------
 
@@ -22,6 +28,7 @@ async function rest(path, opts = {}) {
   const bridge = nativeApi()
 
   if (bridge) {
+    transport.used = 'bridge'
     const payload = await bridge({ path: `${BASE}${path}`, method, body: opts.body })
     if (payload && payload.ok === false) {
       throw new Error(payload.error || 'request failed')
@@ -29,6 +36,7 @@ async function rest(path, opts = {}) {
     return payload || {}
   }
 
+  transport.used = 'fetch'
   const response = await fetch(BASE + path, {
     method,
     headers: opts.body ? { 'Content-Type': 'application/json' } : undefined,
@@ -482,7 +490,7 @@ function StashPage() {
               fontSize: 12,
               marginBottom: 14
             },
-            children: error
+            children: `${error}  ·  via ${transport.used}  ·  bridge ${nativeApi() ? 'present' : 'absent'}  ·  v${VERSION}`
           })
         : null,
       jsx('div', {
@@ -505,6 +513,11 @@ function StashPage() {
             children: label
           }, key)
         )
+      }),
+      jsx('div', {
+        key: 'footer',
+        style: { marginTop: 18, color: MUTED, fontSize: 10.5, opacity: 0.75 },
+        children: `v${VERSION} · backend via ${transport.used} · bridge ${nativeApi() ? 'present' : 'absent'}`
       }),
       loading
         ? jsx('div', { key: 'loading', style: { color: MUTED, fontSize: 12.5 }, children: 'loading…' })
